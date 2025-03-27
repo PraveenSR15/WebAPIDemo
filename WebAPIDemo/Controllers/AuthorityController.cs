@@ -20,12 +20,12 @@ namespace WebAPIDemo.Controllers
         [HttpPost("auth")]
         public IActionResult Authenticate([FromBody] AppCredential credential)
         {
-            if (AppRepository.Authenticate(credential.ClientId, credential.Secret))
+            if (Authenticator.Authenticate(credential.ClientId, credential.Secret))
             {
                 var expiry = DateTime.UtcNow.AddMinutes(10);
                 return Ok(new
                 {
-                    access_token = CreateToken(credential.ClientId, expiry),
+                    access_token = Authenticator.CreateToken(credential.ClientId, expiry,Configuration.GetValue<string>("SecretKey")),
                     expiresAt = expiry
                 });
             }
@@ -39,26 +39,6 @@ namespace WebAPIDemo.Controllers
                 return new UnauthorizedObjectResult(problemDetails);
             }
                 
-        }
-
-        private string CreateToken(string clientId,DateTime expiry)
-        {
-            var app = AppRepository.GetApplication(clientId);
-            var claims = new List<Claim> 
-            {
-                new Claim("AppName",app.ApplicationName??string.Empty),
-                new Claim("Read",(app?.Scopes??string.Empty).Contains("read")?"true":"false"),
-                new Claim("Write",(app?.Scopes??string.Empty).Contains("write")?"true":"false"),
-            };
-            var secretKey = Encoding.ASCII.GetBytes(Configuration.GetValue<string>("Secretkey"));
-            var jwt = new JwtSecurityToken(
-                signingCredentials: new SigningCredentials(
-                    new SymmetricSecurityKey(secretKey),
-                    SecurityAlgorithms.HmacSha256Signature),
-                    claims: claims,
-                    expires: expiry,
-                    notBefore: DateTime.UtcNow);
-            return new JwtSecurityTokenHandler().WriteToken(jwt);
         }
     }
 }
